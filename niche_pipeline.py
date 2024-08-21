@@ -126,6 +126,9 @@ def obtain_clean_celltype_names(adata):
     celltypes = [i.replace(')', '') for i in celltypes]
     celltypes = [i.replace('.', '_') for i in celltypes]
     celltypes = [i.replace('-', '_') for i in celltypes]
+    celltypes = [i.replace('+', '_') for i in celltypes]
+    celltypes = [i.replace('/', '_') for i in celltypes]
+    celltypes = [i.replace(':', '_') for i in celltypes]
     return celltypes
 
 # Stepwise AIC function
@@ -151,14 +154,22 @@ def stepwise_aic(data, response, predictors, direction='both', max_iter=100):
             aic_with_candidates = []
             for p in remaining_predictors:
                 formula = f"{response} ~ {' + '.join(current_predictors + [p])}"
-                model = smf.ols(formula=formula, data=data).fit()
+                try:
+                    model = smf.ols(formula=formula, data=data).fit()
+                except:
+                    print(f"Skipped regression for {response} due to error in formula.")
+                    return None
                 aic_with_candidates.append((get_aic(model), p))
             
             aic_with_candidates.sort()
             if aic_with_candidates and aic_with_candidates[0][0] < best_aic:
                 best_aic, best_predictor = aic_with_candidates[0]
                 current_predictors.append(best_predictor)
-                best_model = smf.ols(f"{response} ~ {' + '.join(current_predictors)}", data=data).fit()
+                try:
+                    best_model = smf.ols(f"{response} ~ {' + '.join(current_predictors)}", data=data).fit()
+                except:
+                    print(f"Skipped regression for {response} due to error in formula.")
+                    return None
                 changed = True
         
         # Backward step
@@ -166,14 +177,22 @@ def stepwise_aic(data, response, predictors, direction='both', max_iter=100):
             aic_with_candidates = []
             for p in current_predictors:
                 formula = f"{response} ~ {' + '.join([x for x in current_predictors if x != p])}"
-                model = smf.ols(formula=formula, data=data).fit()
+                try:
+                    model = smf.ols(formula=formula, data=data).fit()
+                except:
+                    print(f"Skipped regression for {response} due to error in formula.")
+                    return None
                 aic_with_candidates.append((get_aic(model), p))
             
             aic_with_candidates.sort()
             if aic_with_candidates and aic_with_candidates[0][0] < best_aic:
                 best_aic, worst_predictor = aic_with_candidates[0]
                 current_predictors.remove(worst_predictor)
-                best_model = smf.ols(f"{response} ~ {' + '.join(current_predictors)}", data=data).fit()
+                try:
+                    best_model = smf.ols(f"{response} ~ {' + '.join(current_predictors)}", data=data).fit()
+                except:
+                    print(f"Skipped regression for {response} due to error in formula.")
+                    return None
                 changed = True
         
         if not changed:
@@ -290,12 +309,18 @@ def regress_residual_on_interaction(observed_expression, expected_expression,
             if len(interaction_terms) > 20: # Too many candidate combinations
                 # Create model with all interaction terms
                 formula = f"{valid_gene} ~ {' + '.join(interaction_terms)}"
-                model = smf.ols(formula=formula, data=sub_deconv).fit()
+                try:
+                    model = smf.ols(formula=formula, data=sub_deconv).fit()
+                except:
+                    print(f"Skipped regression on {gene} for cluster{cluster} due to error in formula.")
+                    continue
+                
             else:
                 # Perform stepwise regression
                 model = stepwise_aic(response = valid_gene, predictors = interaction_terms,
                                      data = sub_deconv, direction = 'backward')
-            
+                if model == None:
+                    continue
             models_per_cluster[cluster] = model
         models_per_gene[gene] = models_per_cluster
         i+= 1
