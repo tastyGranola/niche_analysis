@@ -297,6 +297,13 @@ def regress_residual_on_interaction(observed_expression, expected_expression,
             
             interaction_pairs = np.array([index.flatten(), niche.flatten()]).T
 
+            unique_pairs = set()
+
+            for pair in interaction_pairs:
+                unique_pairs.add(tuple(sorted(pair)))
+
+            interaction_pairs = np.array(list(unique_pairs))
+          
             interaction_terms = []
             for (f1, f2) in interaction_pairs:
                 if f1 != f2: # avoid self-interaction term
